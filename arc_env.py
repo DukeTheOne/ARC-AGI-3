@@ -1,63 +1,46 @@
+# arc_env.py
+
 import numpy as np
 
-
 class ARCAgentEnv:
-    """
-    A 64x64 grid world environment for ARC-AGI-3.
-    """
-
-    def __init__(self, size=64):
+    def __init__(self, size=10):
         self.size = size
-        self.player_pos = [0, 0]
-        self.goal_pos = [size - 1, size - 1]
         self.grid = np.zeros((self.size, self.size), dtype=int)
         self.reset()
 
     def reset(self):
-        """Resets the environment to the initial state."""
         self.player_pos = [0, 0]
         self.goal_pos = [self.size - 1, self.size - 1]
-        self._update_grid()
         return self.observation()
 
-    def _update_grid(self):
+    def observation(self):
         self.grid.fill(0)
         self.grid[self.goal_pos[0], self.goal_pos[1]] = 2
         self.grid[self.player_pos[0], self.player_pos[1]] = 1
+        return {"grid": self.grid.copy()}
 
+    def render(self):
+        print("\n--- Current Environment State ---")
+        for row in self.grid:
+            print(" ".join(f"{int(cell):>2}" for cell in row))
+        print("---------------------------------")
+
+    # MAKE SURE THIS METHOD IS INCLUDED AND INDENTED CORRECTLY
     def step(self, action):
-        """
-        Executes an action.
-        Actions: 0: Up, 1: Down, 2: Left, 3: Right
-        """
-        new_r, new_c = self.player_pos
+        old_pos = tuple(self.player_pos)
+        r, c = self.player_pos
 
-        if action == 0:    # Up
-            new_r -= 1
-        elif action == 1:  # Down
-            new_r += 1
-        elif action == 2:  # Left
-            new_c -= 1
-        elif action == 3:  # Right
-            new_c += 1
+        if action == 0 and r > 0: r -= 1       # Up
+        elif action == 1 and r < self.size-1: r += 1 # Down
+        elif action == 2 and c > 0: c -= 1     # Left
+        elif action == 3 and c < self.size-1: c += 1 # Right
 
-        # Keep within bounds
-        new_r = max(0, min(self.size - 1, new_r))
-        new_c = max(0, min(self.size - 1, new_c))
+        self.player_pos = [r, c]
+        
+        # Check if the player actually moved
+        if tuple(self.player_pos) == old_pos and action != 4:
+            status = "BLOCKED_BY_BOUNDARY"
+        else:
+            status = "SUCCESS" if self.player_pos == self.goal_pos else "TRANSITION_COMPLETE"
 
-        self.player_pos = [new_r, new_c]
-
-        # Check if solved
-        solved = self.player_pos == self.goal_pos
-
-        self._update_grid()
-
-        info = {"status": "Solved" if solved else "InProgress"}
-        return self.observation(), solved, info
-
-    def observation(self):
-        """Returns the current grid state and player coordinates."""
-        return {
-            "grid": self.grid.copy(),
-            "player_coordinates": tuple(self.player_pos)
-        }
+        return self.observation(), self.player_pos == self.goal_pos, {"status": status}
